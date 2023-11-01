@@ -1,7 +1,7 @@
 module ReferenceFrames
 using Quaternion, LinearAlgebra
 
-export origin, OriginFrame, InertialFrame, transformposition, transformvelocity
+export OriginFrame, InertialFrame, transformposition, transformvelocity, transformacceleration
 
 "Supertype for all reference frame types"
 abstract type ReferenceFrame end
@@ -62,30 +62,32 @@ function _transformvalue(
 end
 
 "Transforms a position vector from a reference frame into its parent frame"
-function ascendposition(
+function _shiftposition(
     pos::Vector{<:Real}, 
     frame::ReferenceFrame, 
-    t::Real
+    t::Real,
+    ::Val{1}
     )
 
     f_pos = getposition(frame, t)
     f_quat = getquaternion(frame, t)
     return f_pos + qvq(f_quat, pos)
 end
-_shiftposition(pos::Vector{<:Real}, frame::ReferenceFrame, t::Real, ::Val{1}) = ascendposition(pos, frame, t)
+ascendposition(pos::Vector{<:Real}, frame::ReferenceFrame, t::Real) = _shiftposition(pos, frame, t, Val(1))
 
 "Transforms a position vector into a reference frame from its parent frame"
-function descendposition(
+function _shiftposition(
     pos::Vector{<:Real}, 
     frame::ReferenceFrame, 
-    t::Real
+    t::Real,
+    ::Val{-1}
     )
 
     f_pos = getposition(frame, t)
     f_quat = qinv(getquaternion(frame, t))
     return qvq(f_quat, pos - f_pos)
 end
-_shiftposition(pos::Vector{<:Real}, frame::ReferenceFrame, t::Real, ::Val{-1}) = descendposition(pos, frame, t)
+descendposition(pos::Vector{<:Real}, frame::ReferenceFrame, t::Real) = _shiftposition(pos, frame, t, Val(-1))
 
 "Transforms a position vector from frame1 to frame2"
 function transformposition(
@@ -99,10 +101,11 @@ function transformposition(
 end
 
 "Transforms a velocity vector from a reference frame into its parent frame. Requires position to calculate"
-function ascendvelocity(
+function _shiftvelocity(
     (pos, vel)::Tuple{Vector{<:Real}, Vector{<:Real}}, 
     frame::ReferenceFrame, 
-    t::Real
+    t::Real,
+    ::Val{1}
     )
 
     f_vel = getvelocity(frame, t)
@@ -112,14 +115,15 @@ function ascendvelocity(
     vel_new = f_vel + qvq(f_quat, vel) + cross(f_omega, qvq(f_quat, pos))
     return pos_new, vel_new
 end
-_shiftvelocity((pos, vel)::Tuple{Vector{<:Real}, Vector{<:Real}}, frame::ReferenceFrame, t::Real, ::Val{1}) = 
-    ascendvelocity((pos, vel), frame, t)
+ascendvelocity((pos, vel)::Tuple{Vector{<:Real}, Vector{<:Real}}, frame::ReferenceFrame, t::Real) = 
+    ascendvelocity((pos, vel), frame, t, Val(1))
 
 "Transforms a velocity vector into a reference frame from its parent frame. Requires position to calculate"
-function descendvelocity(
+function _shiftvelocity(
     (pos, vel)::Tuple{Vector{<:Real}, Vector{<:Real}}, 
     frame::ReferenceFrame, 
-    t::Real
+    t::Real,
+    ::Val{-1}
     )
 
     f_vel = getvelocity(frame, t)
@@ -129,8 +133,8 @@ function descendvelocity(
     vel_new = qvq(f_quat, vel - f_vel - cross(f_omega, pos))
     return pos_new, vel_new
 end
-_shiftvelocity((pos, vel)::Tuple{Vector{<:Real}, Vector{<:Real}}, frame::ReferenceFrame, t::Real, ::Val{-1}) = 
-    descendvelocity((pos, vel), frame, t)
+descendvelocity((pos, vel)::Tuple{Vector{<:Real}, Vector{<:Real}}, frame::ReferenceFrame, t::Real) = 
+    _shiftvelocity((pos, vel), frame, t, Val(-1))
 
 "Transforms a velocity vector from frame1 to frame2"
 function transformvelocity(
@@ -141,6 +145,57 @@ function transformvelocity(
     )
 
     return _transformvalue((pos, vel), frame1, frame2, t, _shiftvelocity)
+end
+
+"Transforms an acceleration vector from a reference frame into its parent frame. Requires position and velocity"
+function _shiftaccel(
+    (pos, vel, acc)::Tuple{Vector{<:Real}, Vector{<:Real}, Vector{<:Real}}, 
+    frame::ReferenceFrame, 
+    t::Real,
+    ::Val{1}
+    )
+
+    f_acc = getacceleration(frame, t)
+    f_quat = getquaternion(frame, t)
+    f_omega = getomega(frame, t)
+    f_alpha = getalpha(frame, t)
+    pos_r = qvq(f_quat, pos)
+    vel_r = qvq(f_quat, vel)
+    acc_r = qvq(f_quat, acc)
+    pos_new = ascendposition(pos, frame, t)
+    vel_new = ascendvelocity((pos, vel), frame, t)
+    acc_new = acc_r + f_acc + 2*cross(f_omega, vel_r) + cross(f_omega, cross(f_omega, pos_r)) + cross(f_alpha, pos_r)
+    return pos_new, vel_new, acc_new
+end
+
+"Transforms an acceleration vector into a reference frame from its parent frame. Requires position and velocity"
+function _shiftaccel(
+    (pos, vel, acc)::Tuple{Vector{<:Real}, Vector{<:Real}, Vector{<:Real}}, 
+    frame::ReferenceFrame, 
+    t::Real,
+    ::Val{-1}
+    )
+
+    f_acc = getacceleration(frame, t)
+    f_quat = getquaternion(frame, t)
+    f_omega = getomega(frame, t)
+    f_alpha = getalpha(frame, t)
+    pos_new = descendposition(pos, frame, t)
+    vel_new = descendvelocity((pos, vel), frame, t)
+    acc_new = acc - f_acc - 2*cross(f_omega, vel) - cross(f_omega, cross(f_omega, pos)) - cross(f_alpha, pos)
+    acc_new = qvq(f_quat, acc_new)
+    return pos_new, vel_new, acc_new
+end
+
+"Transforms an acceleration vector from frame1 to frame2"
+function transformacceleration(
+    (pos, vel, acc)::Tuple{Vector{<:Real}, Vector{<:Real}, Vector{<:Real}},
+    frame1::ReferenceFrame, 
+    frame2::ReferenceFrame, 
+    t::Real
+    )
+
+    return _transformvalue((pos, vel, acc), frame1, frame2, t, _shiftaccel)
 end
 
 # Include files for frame types

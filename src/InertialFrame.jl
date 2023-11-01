@@ -4,9 +4,8 @@ like ECI is *not* if the motion of the Earth about the sun is considered
 
 # Properties
 - `ID`: The string ID of the frame. Used for display, is not necessarily unique
-- `parent`: The reference frame this frame is a child of. If this frame is referenced to no other, then this should be
-    `origin`. For example, ECEF is a child of ECI which is a child of HGI which should be `origin` for a problem in
-    the solar system
+- `parent`: The reference frame this frame is a child of. For example, ECEF is a child of ECI which is a child of HGI 
+    which should be an `OriginFrame` for a problem in the solar system
 - `q`: The unit quaternion rotating from this frame to its parent
 - `r0`: The position of this frame at t=0 in the parent frame
 - `v`: The velocity of this frame in the parent frame
@@ -27,3 +26,4 @@ getacceleration(::InertialFrame, args...) = [0, 0, 0]
 
 getquaternion(frame::InertialFrame, args...) = frame.q
 getomega(::InertialFrame, args...) = zeros(3)
+getalpha(::InertialFrame, args...) = zeros(3)
