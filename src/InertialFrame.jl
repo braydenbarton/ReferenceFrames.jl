@@ -26,3 +26,4 @@ getvelocity(frame::InertialFrame, args...) = frame.v
 getacceleration(::InertialFrame, args...) = [0, 0, 0]
 
 getquaternion(frame::InertialFrame, args...) = frame.q
+getomega(::InertialFrame, args...) = zeros(3)
