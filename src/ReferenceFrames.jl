@@ -116,7 +116,7 @@ function _shiftvelocity(
     return pos_new, vel_new
 end
 ascendvelocity((pos, vel)::Tuple{Vector{<:Real}, Vector{<:Real}}, frame::ReferenceFrame, t::Real) = 
-    ascendvelocity((pos, vel), frame, t, Val(1))
+    _shiftvelocity((pos, vel), frame, t, Val(1))
 
 "Transforms a velocity vector into a reference frame from its parent frame. Requires position to calculate"
 function _shiftvelocity(
