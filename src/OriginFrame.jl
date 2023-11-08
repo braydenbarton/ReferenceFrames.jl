@@ -6,22 +6,19 @@ be declared for each.
 # Properties
 - `ID`: The string ID of the frame. Used for display, is not necessarily unique
 """
-struct OriginFrame <: ReferenceFrame 
+struct OriginFrame <: AbstractInertialFrame
     ID::String
 end
 
-_framename(::OriginFrame) = "OriginFrame"
-
-getposition(::OriginFrame, args...) = [0, 0, 0]
-getvelocity(::OriginFrame, args...) = [0, 0, 0]
-getacceleration(::OriginFrame, args...) = [0, 0, 0]
-
-getquaternion(::OriginFrame, args...) = [1, 0, 0, 0]
-getomega(::OriginFrame, args...) = zeros(3)
-getalpha(::OriginFrame, args...) = zeros(3)
+getposition(::OriginFrame, args...) = SA[0, 0, 0]
+getvelocity(::OriginFrame, args...) = SA[0, 0, 0]
+getquaternion(::OriginFrame, args...) = SA[1, 0, 0, 0]
 
 "When called on an `OriginFrame` object, return the object itself"
 getfamily(frame::OriginFrame) = [frame]
 
 "An OriginFrame's parent is itself"
 getparent(frame::OriginFrame) = frame
+
+"An OriginFrame is always inertial"
+isinertial(::OriginFrame) = true

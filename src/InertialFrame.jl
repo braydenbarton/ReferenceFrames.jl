@@ -1,6 +1,6 @@
 """
-An inertial reference frame (does not accelerate or rotate). Note that this is a *true* inertial frame, which a frame 
-like ECI is *not* if the motion of the Earth about the sun is considered
+A reference frame that does not accelerate or rotate relative to its parent. Note that this is only a *true* inertial frame if
+all frames above it in the hierarchy are a subtype of `AbstractInertialFrame`
 
 # Properties
 - `ID`: The string ID of the frame. Used for display, is not necessarily unique
@@ -10,20 +10,38 @@ like ECI is *not* if the motion of the Earth about the sun is considered
 - `r0`: The position of this frame at t=0 in the parent frame
 - `v`: The velocity of this frame in the parent frame
 """
-struct InertialFrame <: ReferenceFrame
+struct InertialFrame <: AbstractInertialFrame
     ID::String
     parent::ReferenceFrame
-    q::Vector{<:Real}
-    r0::Vector{<:Real}
-    v::Vector{<:Real}
+    q::Quat
+    r0::R3Vec
+    v::R3Vec
+
+    "Inner constructor taking keyword arguments only, allowing default values"
+    function InertialFrame(;
+        ID::Union{String, Nothing}=nothing,
+        parent::ReferenceFrame,
+        q::Quat=SA[1, 0, 0, 0],
+        r0::R3Vec=SA[0, 0, 0],
+        v::R3Vec=SA[0, 0 ,0]
+        )
+
+        # If no ID supplied, create it automatically from a hash of the inputs
+        if isnothing(ID)
+            ID = _hashid(8, parent, q, r0, v)
+        end
+
+        new(ID, parent, q, r0, v)
+    end
 end
 
-_framename(::InertialFrame) = "InertialFrame"
+# Constructors for taking positional arguments
+InertialFrame(ID::String, parent::ReferenceFrame, q::Quat, r0::R3Vec, v::R3Vec) = 
+    InertialFrame(ID=ID, parent=parent, q=q, r0=r0, v=v)
+
+InertialFrame(parent::ReferenceFrame, q::Quat, r0::R3Vec, v::R3Vec) = InertialFrame(parent=parent, q=q, r0=r0, v=v)
+InertialFrame(parent::ReferenceFrame, q::Quat) = InertialFrame(parent=parent, q=q)
 
 getposition(frame::InertialFrame, t::Real) = frame.r0 + frame.v * t
 getvelocity(frame::InertialFrame, args...) = frame.v
-getacceleration(::InertialFrame, args...) = [0, 0, 0]
-
 getquaternion(frame::InertialFrame, args...) = frame.q
-getomega(::InertialFrame, args...) = zeros(3)
-getalpha(::InertialFrame, args...) = zeros(3)
